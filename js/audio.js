@@ -383,6 +383,46 @@ export class Music {
     if (this.engine) this.engine.setMood(m);
   }
 
+  // donder: een ruisstoot door een laagdoorlaatfilter; dichtbij een harde klap, ver weg een lang gerommel
+  thunder(dist) {
+    if (!this.ctx || !this.wanted || this.hidden || this.ctx.state !== 'running') return;
+    const ctx = this.ctx, e = this.engine, now = ctx.currentTime;
+    if (!this.noiseBuf) this.noiseBuf = makeNoise(ctx, 10);
+    const near = Math.max(0, 1 - dist / 22000);
+    const dur = 3.5 + (1 - near) * 4 + Math.random() * 2;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuf;
+    src.playbackRate.value = 0.6 + Math.random() * 0.5;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(140 + near * near * 1400, now);
+    lp.frequency.exponentialRampToValueAtTime(90 + near * 200, now + dur);
+    lp.Q.value = 0.6;
+    const g = ctx.createGain();
+    const peak = (0.25 + near * 1.1) * 0.9;
+    g.gain.setValueAtTime(0.0001, now);
+    if (near > 0.55) {
+      g.gain.linearRampToValueAtTime(peak * 1.3, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(peak * 0.5, now + 0.35);
+    } else {
+      g.gain.linearRampToValueAtTime(peak * 0.6, now + 0.4 + Math.random() * 0.4);
+    }
+    // gerommel: een paar willekeurige aanzwellingen
+    let tt = now + 0.5;
+    while (tt < now + dur - 0.8) {
+      g.gain.linearRampToValueAtTime(peak * (0.35 + Math.random() * 0.6), tt + 0.15 + Math.random() * 0.4);
+      tt += 0.4 + Math.random() * 0.9;
+    }
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    src.connect(lp).connect(g);
+    g.connect(e.out);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.5;
+    g.connect(wet).connect(e.reverb);
+    src.start(now, Math.random() * 4);
+    src.stop(now + dur + 0.1);
+  }
+
   tick() {
     if (!this.ctx || this.ctx.state !== 'running') return;
     const e = this.engine;
