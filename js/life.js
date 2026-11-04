@@ -44,7 +44,7 @@ function spotAhead(cam, dir, minD, maxD, spread, out) {
   return false;
 }
 
-const ROBES = ['#b8473a', '#3d4f8f', '#d19a3a', '#2f8077', '#7a3d7a', '#e8e0d0', '#5b6b3a'].map((c) => new THREE.Color(c));
+const ROBES = ['#7a3a30', '#3a4660', '#8a6a3a', '#3d5a52', '#5a3d52', '#b9b0a0', '#4f5a3a'].map((c) => new THREE.Color(c));
 
 export class Life {
   constructor(scene, mats, quality) {
@@ -52,16 +52,11 @@ export class Life {
     const q = quality;
 
     // wandelaars
-    this.nW = Math.round(90 * q);
+    this.nW = Math.round(45 * q);
     this.wMesh = instanced(scene, M.wanderer(), mats.prop, this.nW);
+    if (mats.depthProp) { this.wMesh.layers.enable(1); this.wMesh.userData.depth = mats.depthProp; }
     this.walkers = [];
     for (let i = 0; i < this.nW; i++) this.walkers.push({ x: 0, z: 0, y: 0, a: 0, speed: 1, phase: Math.random() * 10, alive: false, leader: -1, ox: 0, oz: 0, scale: 1 });
-
-    // reuzen
-    this.nT = 3;
-    this.tMesh = instanced(scene, M.titanBody(), mats.titan, this.nT);
-    this.titans = [];
-    for (let i = 0; i < this.nT; i++) this.titans.push({ x: 0, z: 0, a: 0, alive: false, cool: 4 + i * 25, s: 60 });
 
     // vogels
     this.nFlocks = 4;
@@ -76,28 +71,8 @@ export class Life {
       }
       this.flocks.push({ x: 0, y: 0, z: 0, a: 0, turn: 0, alive: false, birds, t: Math.random() * 100 });
     }
-    const birdCol = new THREE.Color('#2b2733');
+    const birdCol = new THREE.Color('#3a3530');
     for (let i = 0; i < this.nFlocks * this.perFlock; i++) birdCol.toArray(this.bMesh.instanceColor.array, i * 3);
-
-    // wolken
-    this.nC = Math.round(46 * Math.max(q, 0.6));
-    this.cMesh = instanced(scene, M.cloud(), mats.cloud, this.nC);
-    this.clouds = [];
-    const CS = 1536;
-    for (let i = 0; i < this.nC; i++) {
-      this.clouds.push({ x: (Math.random() - 0.5) * CS, z: (Math.random() - 0.5) * CS, y: 115 + Math.random() * 70, s: 0.8 + Math.random() * 1.4, r: Math.random() * 6 });
-    }
-    this.CS = CS;
-
-    // zwevende eilanden
-    this.nI = 7;
-    this.iMesh = instanced(scene, M.island(), mats.island, this.nI);
-    this.islands = [];
-    const IS = 3072;
-    for (let i = 0; i < this.nI; i++) {
-      this.islands.push({ x: (Math.random() - 0.5) * IS, z: (Math.random() - 0.5) * IS, y: 95 + Math.random() * 90, s: 0.7 + Math.random() * 0.9, r: Math.random() * 6, ph: Math.random() * 6 });
-    }
-    this.IS = IS;
 
     // hemellantaarns
     this.nL = Math.round(70 * q);
@@ -110,7 +85,7 @@ export class Life {
     }
 
     // deeltjes
-    const nP = Math.round(1500 * q);
+    const nP = Math.round(1000 * q);
     const g = new THREE.BufferGeometry();
     const pos = new Float32Array(nP * 3), rnd = new Float32Array(nP * 4);
     for (let i = 0; i < nP; i++) {
@@ -203,39 +178,6 @@ export class Life {
     }
     this.wMesh.instanceMatrix.needsUpdate = true;
 
-    // --- reuzen
-    for (let i = 0; i < this.nT; i++) {
-      const T = this.titans[i];
-      if (T.alive) {
-        const dx = T.x - cam.x, dz = T.z - cam.z;
-        if (Math.hypot(dx, dz) > 620 || dx * dir.x + dz * dir.z < -160) { T.alive = false; T.cool = 30 + Math.random() * 60; }
-      }
-      if (!T.alive) {
-        hideInst(this.tMesh, i);
-        T.cool -= dt;
-        if (T.cool <= 0) {
-          const sp = this.tmp;
-          if (spotAhead(cam, dir, 300, 480, 1.2, sp)) {
-            T.x = sp.x; T.z = sp.z; T.alive = true;
-            T.s = 50 + Math.random() * 25;
-            // loop ongeveer dwars op de vliegrichting
-            T.a = Math.atan2(dir.x, dir.z) + (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2 + (Math.random() - 0.5) * 0.8);
-            new THREE.Color(['#b9b2a6', '#a6b0bf', '#c7b29a'][i % 3]).toArray(this.tMesh.instanceColor.array, i * 3);
-            this.tMesh.instanceColor.needsUpdate = true;
-          } else T.cool = 2;
-        }
-        continue;
-      }
-      const sp = T.s * 0.032;
-      T.x += Math.sin(T.a) * sp * dt; T.z += Math.cos(T.a) * sp * dt;
-      T.a += Math.sin(t * 0.05 + i) * 0.01 * dt;
-      const h = Math.max(heightScene(T.x, T.z), -2);
-      const ph = i * 2.1;
-      const bob = Math.abs(Math.cos(t * 1.4 + ph)) * 0.02 * T.s;
-      setInst(this.tMesh, i, T.x, h - T.s * 0.05 + bob, T.z, 0, T.a, Math.sin(t * 1.4 + ph) * 0.03, T.s);
-    }
-    this.tMesh.instanceMatrix.needsUpdate = true;
-
     // --- vogels
     let bi = 0;
     for (const F of this.flocks) {
@@ -267,27 +209,6 @@ export class Life {
     }
     this.bMesh.instanceMatrix.needsUpdate = true;
 
-    // --- wolken (wrap rond de camera)
-    const CS = this.CS, half = CS / 2;
-    for (let i = 0; i < this.nC; i++) {
-      const c = this.clouds[i];
-      c.x += 2.2 * dt; c.z += 1.1 * dt;
-      c.x = cam.x + ((((c.x - cam.x + half) % CS) + CS) % CS) - half;
-      c.z = cam.z + ((((c.z - cam.z + half) % CS) + CS) % CS) - half;
-      setInst(this.cMesh, i, c.x, c.y, c.z, 0, c.r, 0, c.s, c.s * 0.8);
-    }
-    this.cMesh.instanceMatrix.needsUpdate = true;
-
-    // --- eilanden
-    const IS = this.IS, ih = IS / 2;
-    for (let i = 0; i < this.nI; i++) {
-      const c = this.islands[i];
-      c.x = cam.x + ((((c.x - cam.x + ih) % IS) + IS) % IS) - ih;
-      c.z = cam.z + ((((c.z - cam.z + ih) % IS) + IS) % IS) - ih;
-      setInst(this.iMesh, i, c.x, c.y + Math.sin(t * 0.25 + c.ph) * 2.5, c.z, Math.sin(t * 0.2 + c.ph) * 0.03, c.r + t * 0.01, 0, c.s);
-    }
-    this.iMesh.instanceMatrix.needsUpdate = true;
-
     // --- hemellantaarns (vooral in de schemering en 's nachts)
     for (let i = 0; i < this.nL; i++) {
       const L = this.lanterns[i];
@@ -316,10 +237,7 @@ export class Life {
   rebase(dx, dz) {
     const shift = (o) => { o.x -= dx; o.z -= dz; };
     this.walkers.forEach(shift);
-    this.titans.forEach(shift);
     this.flocks.forEach(shift);
-    this.clouds.forEach(shift);
-    this.islands.forEach(shift);
     this.lanterns.forEach(shift);
   }
 }

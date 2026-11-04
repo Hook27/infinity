@@ -5,9 +5,10 @@ import { mulberry32, seedFor, hash2 } from './noise.js';
 import * as M from './models.js';
 
 export const CHUNK = 48;
-const SEG = 24;
+const SEG = 32;
 const CELL = CHUNK / SEG;
 const VN = SEG + 1;
+const BN = SEG + 3; // met een rand van één cel extra voor de normalen
 
 // ---------- Instance-pools ----------
 // Eén InstancedMesh per objecttype. Chunks krijgen 'pages' van 8 instances uit een vrije lijst,
@@ -97,38 +98,35 @@ const C = (h) => new THREE.Color(h);
 const P = (arr) => arr.map((a) => (a ? a.map(C) : null));
 
 // Bioomindex: 0 woestijn, 1 weide, 2 bloesem, 3 herfst, 4 sneeuw
+// Bewust minder objecten dan voorheen: elk object is nu veel gedetailleerder.
 const TYPES = {
-  grass: { frac: 0.65, model: M.grass, per: 120, tries: 150, dens: [0.3, 1, 0.95, 0.75, 0.12], slope: 0.45, scale: [0.9, 1.7], sink: 0.05, double: true,
-    colors: P([['#c9a65a', '#d8b56a'], ['#7cc04f', '#91cf55', '#6aab45'], ['#a8d66a', '#bfe07a'], ['#d6a243', '#c98a3a', '#e0b85a'], ['#b7c9b0']]) },
-  flower: { frac: 0.6, model: M.flower, per: 44, tries: 60, dens: [0.04, 0.75, 1, 0.25, 0], slope: 0.4, scale: [0.9, 1.4], sink: 0.02, double: true,
-    colors: P([['#ff7aa8'], ['#ff6b8b', '#ffd34e', '#ffffff', '#9b7bff', '#ff8a3d'], ['#ff9ac8', '#ffffff', '#ffd1e8', '#c7a0ff'], ['#ffb347', '#ff6b4a'], null]) },
-  tree: { frac: 0.45, model: M.treeRound, per: 28, tries: 60, dens: [0, 0.85, 0.2, 0.65, 0], slope: 0.38, scale: [0.9, 1.6], sink: 0.3, forest: -0.05,
-    colors: P([null, ['#4f9a3c', '#6cb043', '#3d7d3a', '#5aa640'], ['#7cbf55'], ['#e0662c', '#f2a33a', '#c0392b', '#e8c547', '#d9531e'], null]) },
-  pine: { frac: 0.5, model: M.pine, per: 28, tries: 60, dens: [0, 0.18, 0, 0.35, 1], slope: 0.5, scale: [0.9, 1.9], sink: 0.3, forest: -0.15,
-    colors: P([null, ['#2f6b46', '#3a7a4c'], null, ['#4b6b3a', '#5c7a3c'], ['#2f5d50', '#3c6e5e', '#2a5248']]) },
-  blossom: { frac: 0.5, model: M.blossomTree, per: 24, tries: 50, dens: [0, 0.06, 1, 0, 0], slope: 0.38, scale: [0.9, 1.5], sink: 0.3, forest: -0.1,
-    colors: P([null, ['#ffc4dd'], ['#f7a8c8', '#ffc4dd', '#f48fb1', '#fff0f5', '#e7a0ff'], null, null]) },
-  acacia: { frac: 0.25, model: M.acacia, per: 8, tries: 10, dens: [0.35, 0.08, 0, 0, 0], slope: 0.35, scale: [1, 1.6], sink: 0.2,
-    colors: P([['#8aa04a', '#9aa84e'], ['#6f9a3e'], null, null, null]) },
-  cactus: { frac: 0.25, model: M.cactus, per: 10, tries: 12, dens: [0.65, 0, 0, 0, 0], slope: 0.35, scale: [0.8, 1.5], sink: 0.2,
-    colors: P([['#5e8c4a', '#6a9a50', '#4f7d44'], null, null, null, null]) },
-  bush: { frac: 0.55, model: M.bush, per: 22, tries: 28, dens: [0.3, 0.6, 0.6, 0.75, 0.25], slope: 0.45, scale: [0.8, 1.6], sink: 0.15,
-    colors: P([['#9aa24e', '#a8a058'], ['#4c8f3a', '#5ea844'], ['#e79abf', '#7cbf55'], ['#c65a2a', '#b8862f'], ['#3c6e5e']]) },
-  rock: { frac: 0.6, model: M.rock, per: 16, tries: 18, dens: [0.8, 0.45, 0.4, 0.5, 0.6], slope: 1.2, scale: [0.6, 1.8], sink: 0.2,
-    colors: P([['#c47a52', '#b5694a', '#d29266'], ['#9a958c', '#8a8780'], ['#b0a3ad', '#9d9399'], ['#8c7666', '#7a6a5e'], ['#8a94aa', '#a8b3c6']]) },
-  boulder: { frac: 0.75, model: M.boulder, per: 3, tries: 3, dens: [0.6, 0.3, 0.3, 0.35, 0.5], slope: 0.8, scale: [0.8, 1.6], sink: 0.6,
-    colors: P([['#bf7550'], ['#8f8b84'], ['#a59aa2'], ['#86705f'], ['#8590a6']]) },
-  crystal: { frac: 0.35, model: M.crystal, per: 8, tries: 9, dens: [0.12, 0, 0.05, 0, 0.75], slope: 0.9, scale: [0.8, 2.2], sink: 0.4, tilt: 0.25,
-    colors: P([['#ff7ac8', '#ffa0d8'], null, ['#c7a0ff'], null, ['#7fe0ff', '#b48cff', '#9ff0ff', '#7fb0ff']]) },
-  mushroom: { frac: 0.4, model: M.mushroom, per: 10, tries: 12, dens: [0, 0.3, 0.1, 1, 0], slope: 0.4, scale: [0.6, 2.2], sink: 0.1,
-    colors: P([null, ['#4ff0d0', '#6fd8ff'], ['#ff9ad0'], ['#d9412b', '#e8642c', '#c7341f'], null]) },
-  lantern: { frac: 0.4, model: M.lanternPost, per: 6, tries: 6, dens: [0, 0.08, 0.7, 0.18, 0.05], slope: 0.3, scale: [1, 1.3], sink: 0.1,
-    colors: P([null, ['#ffd28a'], ['#ffb0d0', '#ffd28a'], ['#ffb46a'], ['#bfe8ff']]) },
+  flower: { frac: 0.6, model: M.flower, per: 30, tries: 40, dens: [0.03, 0.6, 0.9, 0.2, 0], slope: 0.4, scale: [0.9, 1.3], sink: 0.02, noShadow: true,
+    colors: P([['#e86a8e'], ['#e8556f', '#f2c541', '#f4f1ea', '#8f73d9', '#e8823a'], ['#f29ac0', '#f7f2f2', '#f6c8dc', '#b99be6'], ['#e89a3c', '#d8583a'], null]) },
+  tree: { frac: 0.45, model: M.treeBroad, per: 14, tries: 34, dens: [0, 0.8, 0.18, 0.65, 0], slope: 0.38, scale: [0.85, 1.5], sink: 0.25, forest: 0.0,
+    colors: P([null, ['#4f7f30', '#5b8a34', '#43702c', '#668f3a'], ['#62903c'], ['#c4642a', '#d89a34', '#a8432a', '#c9a73a', '#b8572a'], null]) },
+  pine: { frac: 0.5, model: M.pine, per: 16, tries: 36, dens: [0, 0.18, 0, 0.35, 1], slope: 0.5, scale: [0.85, 1.7], sink: 0.25, forest: -0.1,
+    colors: P([null, ['#4f8a55', '#5a9058'], null, ['#62844a', '#6e8c4e'], ['#4a7a64', '#548470', '#46705e']]) },
+  blossom: { frac: 0.5, model: M.blossomTree, per: 12, tries: 30, dens: [0, 0.06, 1, 0, 0], slope: 0.38, scale: [0.9, 1.4], sink: 0.25, forest: -0.05,
+    colors: P([null, ['#f0b8cc'], ['#efa6c2', '#f5c3d6', '#e894b3', '#f7e6ee', '#dba6d9'], null, null]) },
+  acacia: { frac: 0.25, model: M.acacia, per: 5, tries: 7, dens: [0.35, 0.08, 0, 0, 0], slope: 0.35, scale: [1, 1.5], sink: 0.2,
+    colors: P([['#6f8338', '#7c8a3e'], ['#5e7d34'], null, null, null]) },
+  cactus: { frac: 0.25, model: M.cactus, per: 6, tries: 9, dens: [0.6, 0, 0, 0, 0], slope: 0.35, scale: [0.8, 1.4], sink: 0.15,
+    colors: P([['#4f7340', '#587d46', '#466a3c'], null, null, null, null]) },
+  bush: { frac: 0.55, model: M.bush, per: 12, tries: 18, dens: [0.3, 0.55, 0.55, 0.7, 0.25], slope: 0.45, scale: [0.8, 1.5], sink: 0.15,
+    colors: P([['#7f8540', '#8a8648'], ['#3f7030', '#4d7d35'], ['#d68fb0', '#5f8a3a'], ['#a8502a', '#9c7430'], ['#355e4e']]) },
+  rock: { frac: 0.6, model: M.rock, per: 8, tries: 10, dens: [0.8, 0.45, 0.4, 0.5, 0.6], slope: 1.2, scale: [0.6, 1.8], sink: 0.25,
+    colors: P([['#a7684a', '#9a5d42', '#b37a58'], ['#85827b', '#7a7770'], ['#918a88', '#857f7c'], ['#7a6a5d', '#6d6056'], ['#77808f', '#8a93a2']]) },
+  boulder: { frac: 0.75, model: M.boulder, per: 2, tries: 2, dens: [0.6, 0.3, 0.3, 0.35, 0.5], slope: 0.8, scale: [0.8, 1.6], sink: 0.6,
+    colors: P([['#a66a4c'], ['#807d77'], ['#8f8986'], ['#75685d'], ['#78818f']]) },
+  crystal: { frac: 0.35, model: M.crystal, per: 4, tries: 5, dens: [0.08, 0, 0.03, 0, 0.6], slope: 0.9, scale: [0.8, 2.0], sink: 0.4, tilt: 0.25,
+    colors: P([['#e9a3c8'], null, ['#c8b4e8'], null, ['#a9dcef', '#b9c8f2', '#c9eef6']]) },
+  mushroom: { frac: 0.4, model: M.mushroom, per: 5, tries: 7, dens: [0, 0.25, 0.08, 1, 0], slope: 0.4, scale: [0.4, 1.2], sink: 0.08, noShadow: true,
+    colors: P([null, ['#b8865a', '#a0704a'], ['#c9a08a'], ['#b8321f', '#c4462a', '#9c2a1a'], null]) },
+  lantern: { frac: 0.4, model: M.lanternPost, per: 3, tries: 4, dens: [0, 0.06, 0.6, 0.15, 0.04], slope: 0.3, scale: [1, 1.25], sink: 0.1,
+    colors: P([null, ['#ffd28a'], ['#ffc9a0', '#ffd28a'], ['#ffb46a'], ['#ffe2b0']]) },
   monolith: { frac: 0.25, model: M.monolith, per: 12, tries: 0, colors: null },
   column: { frac: 0.3, model: M.column, per: 10, tries: 0, colors: null },
   arch: { frac: 0.15, model: M.arch, per: 1, tries: 0, colors: null },
-  colossus: { frac: 0.12, model: M.colossus, per: 1, tries: 0, colors: null },
-  ring: { frac: 0.12, model: M.ring, per: 1, tries: 0, colors: null },
 };
 
 const _m = new THREE.Matrix4();
@@ -153,8 +151,13 @@ export class World {
     this.pools = {};
     for (const [name, t] of Object.entries(TYPES)) {
       const per = Math.max(1, Math.round(t.per * (t.tries ? this.density : 1)));
-      this.pools[name] = new Pool(scene, t.model(), t.double ? propMatDouble : propMat, Math.ceil(this.slots * per * t.frac) + 16, per);
+      const pool = (this.pools[name] = new Pool(scene, t.model(), propMat, Math.ceil(this.slots * per * t.frac) + 16, per));
+      if (!t.noShadow && opts.depthProp) { pool.mesh.layers.enable(1); pool.mesh.userData.depth = opts.depthProp; }
     }
+    this.depthTerrain = opts.depthTerrain;
+    this.heights = new Float32Array(BN * BN);
+    this.temps = new Float32Array(BN * BN);
+    this.allMeshes = [];
 
     // gedeelde index-buffer
     const idx = [];
@@ -178,11 +181,14 @@ export class World {
     if (this.meshPool.length) return this.meshPool.pop();
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(VN * VN * 3), 3));
-    g.setAttribute('aData', new THREE.BufferAttribute(new Float32Array(VN * VN * 2), 2));
+    g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(VN * VN * 3), 3));
+    g.setAttribute('aData', new THREE.BufferAttribute(new Float32Array(VN * VN * 3), 3));
     g.setIndex(this.index);
     const mesh = new THREE.Mesh(g, this.mat);
     mesh.matrixAutoUpdate = false;
+    if (this.depthTerrain) { mesh.layers.enable(1); mesh.userData.depth = this.depthTerrain; }
     this.scene.add(mesh);
+    this.allMeshes.push(mesh);
     return mesh;
   }
 
@@ -190,29 +196,42 @@ export class World {
     const mesh = this.makeMesh();
     const g = mesh.geometry;
     const pos = g.attributes.position.array;
+    const nor = g.attributes.normal.array;
     const dat = g.attributes.aData.array;
+    const H = this.heights, T = this.temps;
     const ox = cx * CHUNK, oz = cz * CHUNK;
     let minY = 1e9, maxY = -1e9;
+    // hoogtes inclusief een rand, zodat normalen over chunkgrenzen naadloos zijn
+    for (let j = 0; j < BN; j++) {
+      for (let i = 0; i < BN; i++) {
+        sampleWorld(ox + (i - 1) * CELL, oz + (j - 1) * CELL, _w);
+        H[j * BN + i] = _w.h;
+        T[j * BN + i] = _w.t;
+      }
+    }
     for (let j = 0; j < VN; j++) {
       for (let i = 0; i < VN; i++) {
-        const gx = cx * SEG + i, gz = cz * SEG + j;
-        const edgeX = i === 0 || i === SEG, edgeZ = j === 0 || j === SEG;
-        const jx = (hash2(gx, gz, 7) - 0.5) * CELL * 0.7;
-        const jz = (hash2(gx, gz, 8) - 0.5) * CELL * 0.7;
-        const lx = i * CELL + (edgeX ? 0 : jx);
-        const lz = j * CELL + (edgeZ ? 0 : jz);
-        sampleWorld(ox + lx, oz + lz, _w);
         const k = j * VN + i;
-        pos[k * 3] = lx;
-        pos[k * 3 + 1] = _w.h;
-        pos[k * 3 + 2] = lz;
-        dat[k * 2] = _w.t;
-        dat[k * 2 + 1] = hash2(gx, gz, 9);
-        if (_w.h < minY) minY = _w.h;
-        if (_w.h > maxY) maxY = _w.h;
+        const bi = (j + 1) * BN + (i + 1);
+        const h = H[bi];
+        const hl = H[bi - 1], hr = H[bi + 1], hd = H[bi - BN], hu = H[bi + BN];
+        pos[k * 3] = i * CELL;
+        pos[k * 3 + 1] = h;
+        pos[k * 3 + 2] = j * CELL;
+        let nx = hl - hr, ny = 2 * CELL, nz = hd - hu;
+        const l = Math.hypot(nx, ny, nz);
+        nor[k * 3] = nx / l; nor[k * 3 + 1] = ny / l; nor[k * 3 + 2] = nz / l;
+        // holtes iets donkerder (goedkope ambient occlusion)
+        const cav = (hl + hr + hd + hu) * 0.25 - h;
+        dat[k * 3] = T[bi];
+        dat[k * 3 + 1] = hash2(cx * SEG + i, cz * SEG + j, 9);
+        dat[k * 3 + 2] = Math.min(1, Math.max(0.55, 1 - cav * 0.35));
+        if (h < minY) minY = h;
+        if (h > maxY) maxY = h;
       }
     }
     g.attributes.position.needsUpdate = true;
+    g.attributes.normal.needsUpdate = true;
     g.attributes.aData.needsUpdate = true;
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(CHUNK / 2, (minY + maxY) / 2, CHUNK / 2), Math.hypot(CHUNK * 0.71, (maxY - minY) / 2 + 2));
     mesh.position.set(ox - origin.x, 0, oz - origin.z);
@@ -283,8 +302,8 @@ export class World {
     const b = biomeIndex(_w.t);
     if (h0 < 1.2) return;
     const roll = rnd();
-    const stone = [C('#9a958c'), C('#d9b48a'), C('#b8adb5'), C('#8f7a6a'), C('#a0aabf')][b];
-    const ruin = [C('#e6caa0'), C('#e8e2d6'), C('#f2e8ea'), C('#d8c8b4'), C('#e8eef6')][b];
+    const stone = [C('#8a857c'), C('#b08a66'), C('#97908c'), C('#7d7064'), C('#848b96')][b];
+    const ruin = [C('#cdb390'), C('#cfc9bd'), C('#d6cdcb'), C('#bfb09c'), C('#cdd3da')][b];
 
     if (roll < 0.03) {
       // steencirkel
@@ -315,14 +334,8 @@ export class World {
         this.place('column', x, h - 0.2, z, rnd(), 1, _c, broken ? (rnd() - 0.5) * 0.4 : 0, 0, broken ? 0.3 + rnd() * 0.5 : 1);
       }
     } else if (roll < (b === 0 ? 0.16 : 0.085)) {
-      _c.copy(b === 0 ? C('#d58a5a') : stone);
+      _c.copy(b === 0 ? C('#b06e48') : stone);
       this.place('arch', x0, h0 - 2, z0, rnd() * Math.PI, 0.8 + rnd() * 0.6, _c);
-    } else if (roll < (b === 0 ? 0.175 : 0.1)) {
-      _c.copy(stone).multiplyScalar(1.1);
-      this.place('colossus', x0, h0 - 1.2, z0, rnd() * Math.PI * 2, 1.2 + rnd() * 0.6, _c);
-    } else if (roll < (b === 0 ? 0.19 : 0.12)) {
-      _c.copy(ruin);
-      this.place('ring', x0, h0 - 0.3, z0, rnd() * Math.PI, 1 + rnd() * 0.4, _c);
     }
   }
 
