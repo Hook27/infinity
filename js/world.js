@@ -10,6 +10,7 @@ const nW = createNoise2D(SEED + 4);   // domain warp
 const nRv = createNoise2D(SEED + 5);  // rivieren
 const nT = createNoise2D(SEED + 6);   // temperatuur
 const nF = createNoise2D(SEED + 7);   // bossen / clusters
+const nD = createNoise2D(SEED + 8);   // fijn detail
 
 // Verschuiving van de 'floating origin': scènecoördinaten + origin = echte wereldcoördinaten.
 export const origin = { x: 0, z: 0 };
@@ -36,7 +37,9 @@ function fbm(noise, x, z, oct) {
 function ridged(noise, x, z, oct) {
   let sum = 0, amp = 0.55, f = 1, prev = 1;
   for (let i = 0; i < oct; i++) {
-    let n = 1 - Math.abs(noise(x * f, z * f));
+    // 'zachte' absolute waarde: ronde in plaats van messcherpe kammen (voorkomt zaagtanden)
+    const v = noise(x * f, z * f);
+    let n = 1 - Math.sqrt(v * v + 0.004);
     n *= n;
     sum += n * amp * prev;
     prev = n;
@@ -61,6 +64,8 @@ export function sampleWorld(x, z, out) {
   const mMask = smoothstep(0.02, 0.42, cont);
 
   let h = 7 + cont * 16 + hills * 8 + ridge * ridge * mMask * 105;
+  // fijne glooiing zodat het terrein van dichtbij natuurlijk oogt
+  h += nD(x * 0.045, z * 0.045) * 0.9 + nD(x * 0.11 + 37, z * 0.11 - 11) * 0.3;
 
   let t = temperatureAt(x, z);
   // hogere gebieden zijn kouder
@@ -78,8 +83,9 @@ export function sampleWorld(x, z, out) {
 
   // kronkelende rivieren
   const r = Math.abs(nRv(wx * 0.0014, wz * 0.0014) + 0.25 * nRv(wx * 0.006, wz * 0.006));
-  const river = smoothstep(0.015, 0.12, r);
-  h = lerp(-3.2, h, Math.pow(river, 0.85));
+  // brede, glooiende dalen in plaats van steile kloven
+  const river = smoothstep(0.012, 0.2, r);
+  h = lerp(-3.2, h, river * river * (1.6 - 0.6 * river));
 
   out.h = h;
   out.t = t;

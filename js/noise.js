@@ -90,3 +90,27 @@ export function smoothstep(a, b, v) {
   const t = clamp((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 }
+
+// 3D value noise voor het vervormen van modellen (rotsen, stammen); [-1, 1]
+function h3(x, y, z, seed) {
+  let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(z, 2147483647) + Math.imul(seed, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+export function noise3(x, y, z, seed = 0) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const L = (a, b, t) => a + (b - a) * t;
+  const c = (dx, dy, dz) => h3(xi + dx, yi + dy, zi + dz, seed);
+  return L(
+    L(L(c(0, 0, 0), c(1, 0, 0), u), L(c(0, 1, 0), c(1, 1, 0), u), v),
+    L(L(c(0, 0, 1), c(1, 0, 1), u), L(c(0, 1, 1), c(1, 1, 1), u), v),
+    w) * 2 - 1;
+}
+export function fbm3(x, y, z, oct = 3, seed = 0) {
+  let s = 0, a = 0.5, n = 0, f = 1;
+  for (let i = 0; i < oct; i++) { s += noise3(x * f, y * f, z * f, seed + i) * a; n += a; a *= 0.5; f *= 2.1; }
+  return s / n;
+}

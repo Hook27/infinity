@@ -5,7 +5,9 @@ import { UnrealBloomPass } from '../lib/three/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from '../lib/three/postprocessing/OutputPass.js';
 import { ShaderPass } from '../lib/three/postprocessing/ShaderPass.js';
 
-import { U, makeTerrainMaterial, makePropMaterial, makeWaterMaterial, makeSkyMaterial } from './shaders.js';
+import { U, makeTerrainMaterial, makePropMaterial, makeWaterMaterial, makeSkyMaterial, makeDepthMaterial } from './shaders.js';
+import { GrassField } from './grass.js';
+import { Shadows } from './shadows.js';
 import { World } from './terrain.js';
 import { Life } from './life.js';
 import { DayCycle } from './daycycle.js';
@@ -21,14 +23,19 @@ const QUALITY = params.get('q') ? parseFloat(params.get('q')) : mobile ? 0.55 : 
 const RADIUS = QUALITY >= 0.9 ? 7 : QUALITY >= 0.6 ? 6 : 5;
 const CHUNK_EDGE = RADIUS * 48;
 const VIEW = CHUNK_EDGE - 30;
+const HIGH = QUALITY >= 0.9;
+const NO_SHADOW = params.has('noshadow');
+const MSAA = HIGH && !params.has('noaa') ? 4 : 0;
+const SHADOW = HIGH ? { size: 2048, extent: 230 } : { size: 1024, extent: 150 };
+const GRASS = HIGH ? { radius: 40, spacing: 0.95 } : { radius: 24, spacing: 1.15 };
 
 // ---------- renderer ----------
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
-let maxPR = Math.min(devicePixelRatio, mobile ? 1.5 : 2);
-let pixelRatio = Math.min(maxPR, mobile ? 1 : 1.5);
+let maxPR = Math.min(devicePixelRatio, mobile ? 1.5 : MSAA ? 1.5 : 2);
+let pixelRatio = Math.min(maxPR, mobile ? 1 : 1.25);
 renderer.setPixelRatio(pixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 
@@ -37,14 +44,13 @@ const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.4, 26
 
 // ---------- materialen ----------
 const mats = {
-  terrain: makeTerrainMaterial(VIEW),
-  prop: makePropMaterial({ edge: VIEW }),
-  propDouble: makePropMaterial({ edge: VIEW, side: THREE.DoubleSide }),
-  bird: makePropMaterial({ edge: VIEW + 120, wind: false, flap: true, side: THREE.DoubleSide, glowBase: 0 }),
-  titan: makePropMaterial({ edge: 900, wind: false, walk: true }),
-  cloud: makePropMaterial({ edge: 760, wind: false, soft: true, glowBase: 0 }),
-  island: makePropMaterial({ edge: 1500, wind: false }),
+  terrain: makeTerrainMaterial(VIEW, !HIGH),
+  prop: makePropMaterial({ edge: VIEW, a2c: !!MSAA }),
+  bird: makePropMaterial({ edge: VIEW + 120, wind: false, flap: true, glowBase: 0 }),
+  grass: makePropMaterial({ edge: VIEW, field: GRASS.radius, a2c: false }),
 };
+mats.depthProp = makeDepthMaterial(mats.prop);
+mats.depthTerrain = makeDepthMaterial(mats.terrain, false);
 
 // ---------- lucht & water ----------
 const sky = new THREE.Mesh(new THREE.SphereGeometry(1200, 48, 24), makeSkyMaterial());
@@ -58,17 +64,33 @@ water.renderOrder = 2;
 scene.add(water);
 
 // ---------- wereld ----------
-const world = new World(scene, mats.terrain, mats.prop, mats.propDouble, { radius: RADIUS, density: QUALITY >= 0.9 ? 1 : 0.6 });
+const world = new World(scene, mats.terrain, mats.prop, null, {
+  radius: RADIUS, density: HIGH ? 1 : 0.6, depthProp: mats.depthProp, depthTerrain: mats.depthTerrain,
+});
 const life = new Life(scene, mats, QUALITY);
+const grass = new GrassField(scene, mats.grass, GRASS);
+const shadows = new Shadows(renderer, SHADOW);
+const poolCasters = Object.values(world.pools).map((p) => p.mesh).filter((m) => m.userData.depth);
+const casters = [];
+function collectCasters() {
+  casters.length = 0;
+  for (const m of world.allMeshes) if (m.visible) casters.push(m);
+  for (const m of poolCasters) if (m.count > 0) casters.push(m);
+  casters.push(life.wMesh);
+  return casters;
+}
 const day = new DayCycle(params.has('t') ? parseFloat(params.get('t')) : 0.68, 480);
 const pilot = new Pilot(camera);
 
 // startpunt: zoek een mooie plek
 const seedSpot = params.has('seed') ? parseInt(params.get('seed')) : 0;
 pilot.place(seedSpot * 977, seedSpot * 613);
+if (params.has('pause')) pilot.paused = true;
 
 // ---------- nabewerking ----------
-const composer = new EffectComposer(renderer);
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: MSAA }));
+composer.setPixelRatio(pixelRatio);
+composer.setSize(innerWidth, innerHeight);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.6, 0.55, 0.85);
 composer.addPass(bloom);
@@ -90,21 +112,21 @@ const grade = new ShaderPass({
       vec2 uv = vUv;
       vec2 c = uv - 0.5;
       float r2 = dot(c, c);
-      vec2 off = c * r2 * 0.012;
+      vec2 off = c * r2 * 0.005;
       vec3 col;
       col.r = texture2D(tDiffuse, uv + off).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - off).b;
       // zachte kleurgrading: lichte S-curve en warme hooglichten
-      col = mix(col, col * col * (3.0 - 2.0 * col), 0.18);
+      col = mix(col, col * col * (3.0 - 2.0 * col), 0.1);
       float lum = dot(col, vec3(0.299, 0.587, 0.114));
-      col = mix(vec3(lum), col, 1.14);
+      col = mix(vec3(lum), col, 1.06);
       col += vec3(0.012, 0.004, -0.01) * smoothstep(0.4, 1.0, lum);
       // vignet
-      col *= mix(1.0, smoothstep(0.85, 0.18, r2 * 1.6), 0.55);
+      col *= mix(1.0, 1.0 - smoothstep(0.18, 0.85, r2 * 1.6), 0.45);
       // filmkorrel
       float n = hash(uv * uRes + fract(uTime) * 100.0) - 0.5;
-      col += n * 0.028;
+      col += n * 0.014;
       // filmbalken
       float bar = step(uv.y, uBars) + step(1.0 - uBars, uv.y);
       col = mix(col, vec3(0.0), bar);
@@ -210,6 +232,7 @@ function maybeRebase() {
   camera.position.x -= dx; camera.position.z -= dz;
   world.rebase(dx, dz);
   life.rebase(dx, dz);
+  grass.rebase(dx, dz);
 }
 
 // ---------- hoofdlus ----------
@@ -220,6 +243,8 @@ let distance = 0;
 let biome = -1, biomeCand = -1, biomeTimer = 0;
 let frameAcc = 0, frameN = 0, qualityTimer = 0;
 let started = false;
+let frameNo = 0;
+const shadowCenter = new THREE.Vector3();
 let startedAt = 0;
 
 function frame() {
@@ -245,6 +270,7 @@ function frame() {
 
   const wx = pilot.pos.x + origin.x, wz = pilot.pos.z + origin.z;
   world.update(wx, wz, dir.x, dir.z, started ? 5 : 40);
+  grass.update(wx, wz);
 
   // bioom-afhankelijke effecten
   const temp = temperatureAt(wx, wz);
@@ -269,8 +295,21 @@ function frame() {
   sky.position.copy(camera.position);
   water.position.set(camera.position.x, 0, camera.position.z);
 
-  bloom.strength = 0.42 + st.night * 0.45;
-  bloom.threshold = 0.88 - st.night * 0.1;
+  bloom.strength = 0.18 + st.night * 0.5;
+  bloom.threshold = 0.95 - st.night * 0.12;
+
+  // wolken bewegen mee met de reis (in 'wolkeneenheden' van ~740 m), en de bewolking varieert
+  U.uCloudOff.value.set((((wx / 740) % 64) + 64) % 64, (((wz / 740) % 64) + 64) % 64);
+  U.uCloudCover.value = 0.5 + 0.1 * Math.sin(time * 0.013) + 0.05 * Math.sin(time * 0.041);
+
+  // schaduwen: kaart rond het gebied vóór de camera
+  frameNo++;
+  if (!NO_SHADOW && (HIGH || frameNo % 2 === 0)) {
+    shadowCenter.set(pilot.pos.x + dir.x * SHADOW.extent * 0.3, 0, pilot.pos.z + dir.z * SHADOW.extent * 0.3);
+    shadowCenter.y = Math.max(heightScene(shadowCenter.x, shadowCenter.z), 0);
+    const L = U.uLightCol.value;
+    shadows.render(scene, shadowCenter, U.uLightDir.value, (L.r + L.g + L.b) / 3, collectCasters());
+  }
   barsT += ((cinema ? 0.1 : 0) - barsT) * Math.min(1, dt * 3);
   grade.uniforms.uBars.value = barsT;
   if (started) fade = Math.min(1, (performance.now() - startedAt) / 2200);
