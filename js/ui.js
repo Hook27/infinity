@@ -57,6 +57,17 @@ export class UI {
     this.regionTimer = setTimeout(() => this.regionEl.classList.remove('show'), 6500);
   }
 
+  music(state) {
+    const btns = document.querySelectorAll('[data-act="music"]');
+    const label = { on: 'Muziek aan', off: 'Muziek uit', waiting: 'Klik voor muziek' }[state];
+    btns.forEach((b) => {
+      b.dataset.state = state;
+      const l = b.querySelector('.lbl');
+      if (l) l.textContent = label;
+      b.setAttribute('aria-pressed', String(state === 'on'));
+    });
+  }
+
   toast(text) {
     this.toastEl.textContent = text;
     this.toastEl.classList.add('show');

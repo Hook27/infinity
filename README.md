@@ -25,6 +25,11 @@ en ga naar <http://localhost:8000>. Het werkt ook direct op GitHub Pages.
 - **Shaders**: eigen GLSL voor terrein, objecten, water (golven, fresnel, zonreflectie),
   lucht (zon, maan, sterren, melkweg, noorderlicht), atmosferische hoogtemist, vuurvliegjes
   en sneeuw, plus bloom, vignet, filmkorrel en kleurgrading.
+- **Rustige achtergrondmuziek**, live gegenereerd met de Web Audio API: zachte akkoordvlakken,
+  een diepe grondtoon, belletjes met echo en galm, en een zacht windgeruis. Overdag in D-groot,
+  's nachts in D-dorisch; elk bioom heeft een eigen klankkleur. Er zijn geen audiobestanden.
+  Browsers laten geluid pas toe na interactie, dus de muziek begint bij de eerste klik, tik of
+  toets. Je keuze (aan/uit) wordt onthouden.
 
 ## Besturing
 
@@ -37,6 +42,7 @@ en ga naar <http://localhost:8000>. Het werkt ook direct op GitHub Pages.
 | `C` | bioscoopbalken |
 | `spatie` | pauze |
 | `H` | interface verbergen |
+| `M` | muziek aan/uit (ook via de knop rechtsboven) |
 | `F` | volledig scherm |
 
 Met de muis kijk je een beetje rond; slepen (of vegen op een telefoon) stuurt.
@@ -51,6 +57,7 @@ URL-parameters: `?t=0.95` (starttijd, 0–1), `?seed=3` (startplek), `?q=0.6` (k
 - `js/models.js` — procedurele low-poly modellen
 - `js/life.js` — alles wat beweegt
 - `js/pilot.js` — de automatische camera die dalen volgt en bergen ontwijkt
+- `js/audio.js` — de generatieve muziek
 - `js/daycycle.js`, `js/shaders.js`, `js/ui.js`, `js/main.js`
 
 Een *floating origin* houdt de coördinaten klein, zodat de reis echt eindeloos kan duren.
