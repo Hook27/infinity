@@ -10,8 +10,9 @@ import { World } from './terrain.js';
 import { Life } from './life.js';
 import { DayCycle } from './daycycle.js';
 import { Pilot } from './pilot.js';
-import { origin, temperatureAt, biomeIndex, BIOMES } from './world.js';
+import { origin, temperatureAt, biomeIndex, BIOMES, heightScene } from './world.js';
 import { UI } from './ui.js';
+import { Music } from './audio.js';
 
 // ---------- kwaliteit ----------
 const params = new URLSearchParams(location.search);
@@ -116,6 +117,16 @@ composer.addPass(grade);
 // ---------- invoer ----------
 const keys = new Set();
 const ui = new UI();
+const music = new Music((state) => ui.music(state));
+ui.music(music.state);
+// browsers staan geluid pas toe na een klik, tik of toets
+const unlockAudio = (e) => {
+  if (e.target && e.target.closest && e.target.closest('[data-act="music"]')) return;
+  if (e.type === 'keydown' && e.key.toLowerCase() === 'm') return;
+  music.unlock();
+};
+addEventListener('pointerdown', unlockAudio, true);
+addEventListener('keydown', unlockAudio, true);
 let cinema = false;
 let barsT = 0;
 
@@ -129,6 +140,7 @@ addEventListener('keydown', (e) => {
   if (k === 't') { day.skip(); ui.toast('De tijd verstrijkt…'); }
   if (k === 'c') { cinema = !cinema; }
   if (k === 'h') ui.toggle();
+  if (k === 'm') music.toggle();
   if (k === 'f') {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
     else document.exitFullscreen?.();
@@ -176,6 +188,7 @@ document.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click
   if (a === 'pause') { pilot.paused = !pilot.paused; ui.toast(pilot.paused ? 'Gepauzeerd' : 'Verder'); }
   if (a === 'cinema') cinema = !cinema;
   if (a === 'hide') ui.toggle();
+  if (a === 'music') music.toggle();
 }));
 
 addEventListener('resize', () => {
@@ -247,6 +260,11 @@ function frame() {
   }
 
   life.update(dt, pilot.pos, dir, st.night);
+  music.setMood({
+    night: st.night,
+    biome: b,
+    wind: pilot.speed / 40 + Math.max(0, pilot.pos.y - Math.max(heightScene(pilot.pos.x, pilot.pos.z), 0) - 10) / 60,
+  });
 
   sky.position.copy(camera.position);
   water.position.set(camera.position.x, 0, camera.position.z);
