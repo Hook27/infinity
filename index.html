@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Oneindig</title>
+  <meta name="description" content="Een eindeloze, procedureel gegenereerde 3D-wereld om doorheen te zweven.">
+  <meta name="theme-color" content="#0b0d1c">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./lib/three/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="hud">
+    <header class="brand">
+      <div class="logo"><span class="inf">∞</span> Oneindig</div>
+      <div class="tag">een reis zonder einde</div>
+    </header>
+
+    <div class="compass" aria-hidden="true">
+      <div id="compassStrip" class="strip"></div>
+      <div class="needle"></div>
+    </div>
+
+    <div id="region" class="region">
+      <div class="rule"></div>
+      <div id="regionName" class="name"></div>
+      <div id="regionSub" class="sub"></div>
+      <div class="rule"></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><span class="k">Tijd</span><span id="clock" class="v">--:--</span></div>
+      <div class="stat"><span class="k">Afgelegd</span><span class="v"><span id="dist">0.00</span><small>km</small></span></div>
+      <div class="stat"><span class="k">Snelheid</span><span class="v"><span id="speed">0</span><small>km/u</small></span></div>
+      <div class="stat"><span class="k">Hoogte</span><span class="v"><span id="alt">0</span><small>m</small></span></div>
+    </div>
+
+    <div class="controls">
+      <div class="row desk"><kbd>←</kbd><kbd>→</kbd><span>sturen</span></div>
+      <div class="row desk"><kbd>↑</kbd><kbd>↓</kbd><span>snelheid</span></div>
+      <div class="row desk"><kbd>Q</kbd><kbd>E</kbd><span>hoogte</span></div>
+      <div class="row desk"><kbd>T</kbd><span>tijd verder</span><kbd>C</kbd><span>bioscoop</span></div>
+      <div class="row desk"><kbd>spatie</kbd><span>pauze</span><kbd>H</kbd><span>verberg</span></div>
+      <div class="row touch"><span>Sleep om te sturen en te stijgen</span></div>
+      <div class="row touch btns">
+        <button data-act="time">Tijd ☾</button>
+        <button data-act="pause">Pauze</button>
+        <button data-act="cinema">Bioscoop</button>
+        <button data-act="hide">Verberg</button>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <div id="loader">
+    <div class="logo"><span class="inf">∞</span> Oneindig</div>
+    <div class="track"><div id="loadbar"></div></div>
+    <div class="hint">de wereld wordt gevormd…</div>
+  </div>
+
+  <noscript><p class="nojs">Deze wereld heeft JavaScript en WebGL nodig.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
