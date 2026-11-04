@@ -143,7 +143,7 @@ const music = new Music((state) => ui.music(state));
 ui.music(music.state);
 // browsers staan geluid pas toe na een klik, tik of toets
 const unlockAudio = (e) => {
-  if (e.target && e.target.closest && e.target.closest('[data-act="music"]')) return;
+  if (e.target && e.target.closest && e.target.closest('[data-act="music"], .worlds')) return;
   if (e.type === 'keydown' && e.key.toLowerCase() === 'm') return;
   music.unlock();
 };

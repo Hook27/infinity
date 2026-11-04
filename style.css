@@ -25,7 +25,16 @@ body.nohud #hud { opacity: 0; transition: opacity 0.6s; }
 .tag { margin-top: 0.55rem; font-family: var(--serif); font-style: italic; font-size: 1rem; color: var(--ink-dim); letter-spacing: 0.06em; }
 
 /* muziekknop */
-.music { position: absolute; top: var(--gutter); right: var(--gutter); pointer-events: auto; display: inline-flex; align-items: center; gap: 9px;
+/* rechtsboven: wereldkeuze + muziek */
+.topbar { position: absolute; top: var(--gutter); right: var(--gutter); display: flex; align-items: center; gap: 10px; }
+.worlds { pointer-events: auto; display: inline-flex; padding: 3px; border-radius: 999px; background: var(--glass); border: 1px solid rgba(251, 246, 238, 0.28);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.worlds a { font: 500 0.7rem var(--sans); letter-spacing: 0.08em; color: var(--ink-dim); text-decoration: none; padding: 5px 12px; border-radius: 999px; transition: background 0.3s, color 0.3s; }
+.worlds a:hover { color: var(--ink); }
+.worlds a[aria-current="page"] { background: rgba(251, 246, 238, 0.9); color: #14121c; }
+.worlds a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+body.nohud .worlds { pointer-events: none; }
+.music { pointer-events: auto; display: inline-flex; align-items: center; gap: 9px;
   font: 500 0.7rem var(--sans); letter-spacing: 0.08em; color: var(--ink); background: var(--glass); border: 1px solid rgba(251, 246, 238, 0.28);
   border-radius: 999px; padding: 8px 14px 8px 12px; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: border-color 0.3s, background 0.3s; }
 .music:hover { border-color: rgba(251, 246, 238, 0.6); }
@@ -94,7 +103,10 @@ kbd { font-family: var(--sans); font-size: 0.66rem; min-width: 22px; height: 22p
   .compass { top: calc(var(--gutter) + 46px); width: 70vw; }
   .stats { bottom: calc(var(--gutter) + 74px); gap: 14px; }
   .stat:nth-child(4) { display: none; }
-  .music { top: calc(var(--gutter) - 4px); padding: 7px 11px; }
+  .topbar { top: calc(var(--gutter) - 4px); gap: 6px; }
+  .music { padding: 7px 10px; }
+  .music .lbl { display: none; }
+  .worlds a { padding: 5px 9px; }
   .controls { left: var(--gutter); right: var(--gutter); align-items: center; }
   .btns { flex-wrap: wrap; justify-content: center; }
   .region { top: 30%; }

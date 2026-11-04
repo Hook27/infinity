@@ -25,7 +25,44 @@ const MOODS = {
     scale: [62, 65, 67, 69, 72, 74, 77, 79, 81, 84],
     density: 0.6,
   },
+  // ruimte: lager, trager en ijler
+  nebula: {
+    chords: [
+      { bass: 41, pad: [53, 57, 60, 64] }, // Fmaj7
+      { bass: 43, pad: [55, 59, 62, 66] }, // G(add#11)
+      { bass: 38, pad: [52, 57, 60, 64] }, // Dm9 / Am
+      { bass: 36, pad: [52, 55, 59, 64] }, // Cmaj7
+    ],
+    scale: [65, 67, 69, 71, 72, 76, 79, 81, 84, 88],
+    density: 0.5,
+  },
+  void: {
+    chords: [
+      { bass: 45, pad: [52, 57, 59, 64] }, // Asus2
+      { bass: 41, pad: [52, 57, 60, 65] }, // Fmaj7/A
+      { bass: 43, pad: [50, 55, 59, 62] }, // G6
+    ],
+    scale: [64, 69, 71, 72, 76, 81, 83, 88],
+    density: 0.3,
+  },
+  vortex: {
+    chords: [
+      { bass: 38, pad: [50, 53, 57, 61] }, // Dm(maj7)
+      { bass: 34, pad: [50, 53, 58, 62] }, // Bb
+      { bass: 37, pad: [49, 53, 56, 61] }, // C#dim-achtig
+    ],
+    scale: [62, 65, 69, 70, 74, 77, 82],
+    density: 0.28,
+  },
 };
+// klankkleur in de ruimte, per gebied: [octaaf, boventoon, uitklinktijd]
+const SPACE_TONE = [
+  [12, 2.0, 6.0],   // rode nevel
+  [12, 4.2, 7.0],   // blauw cluster: glazig
+  [0, 2.76, 5.0],   // gordel
+  [12, 3.0, 8.0],   // leegte: ver en ijl
+  [0, 1.5, 7.0],    // draaikolk: donker
+];
 
 // klankkleur van de belletjes per bioom: [octaafverschuiving, boventoon, uitklinktijd]
 const BIOME_TONE = [
@@ -199,7 +236,8 @@ export class MusicEngine {
 
   pluck(midi, t, vel) {
     const ctx = this.ctx;
-    const [oct, ratio, decay] = BIOME_TONE[this.mood.biome] || BIOME_TONE[1];
+    const table = this.mood.name ? SPACE_TONE : BIOME_TONE;
+    const [oct, ratio, decay] = table[this.mood.biome] || table[1];
     const f = mtof(midi + oct);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, t);
@@ -226,7 +264,7 @@ export class MusicEngine {
   scheduleUntil(until) {
     const night = this.mood.night;
     while (this.nextChord < until) {
-      const want = night > 0.5 ? 'night' : 'day';
+      const want = this.mood.name || (night > 0.5 ? 'night' : 'day');
       if (want !== this.moodName) { this.moodName = want; this.step = 0; }
       const M = MOODS[this.moodName];
       const chord = M.chords[this.step % M.chords.length];
@@ -357,7 +395,7 @@ export class Music {
     const m = e.mood;
     const target = 0.025 + Math.min(m.wind || 0, 1) * 0.07;
     e.wind.gain.setTargetAtTime(target, now, 1.5);
-    const bright = [1100, 900, 1250, 800, 1400][m.biome] || 900;
+    const bright = m.bright || [1100, 900, 1250, 800, 1400][m.biome] || 900;
     e.padFilter.frequency.setTargetAtTime(bright * (1 - m.night * 0.3), now, 3);
   }
 }

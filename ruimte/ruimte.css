@@ -1,0 +1,4 @@
+/* Aanvullingen voor de ruimte-wereld (bovenop ../style.css) */
+body.space { background: #04050b; }
+body.space #loader { background: radial-gradient(ellipse at 50% 60%, #121733, #04050b 70%); }
+body.space .stat #sNear { font-size: clamp(1rem, 1.7vw, 1.3rem); }
