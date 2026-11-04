@@ -157,7 +157,11 @@ addEventListener('pointermove', (e) => {
     pilot.lookPitchT = -((e.clientY / innerHeight) - 0.5) * 0.18;
   }
 });
-const endDrag = () => { drag = null; pointerSteer = 0; pilot.climb = 0; };
+const endDrag = (e) => {
+  // tik zonder slepen terwijl de HUD verborgen is: HUD weer tonen
+  if (drag && e && ui.hidden && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 8) ui.toggle();
+  drag = null; pointerSteer = 0; pilot.climb = 0;
+};
 addEventListener('pointerup', endDrag);
 addEventListener('pointercancel', endDrag);
 document.addEventListener('mouseleave', () => { pilot.lookYawT = 0; pilot.lookPitchT = 0; });

@@ -60,7 +60,7 @@ vec3 atmos(vec3 col, vec3 wpos) {
   vec3 d = rel / max(dist, 1e-4);
   float hf = exp(-max(wpos.y, 0.0) * 0.022);
   float f = 1.0 - exp(-dist * uFogDensity * (0.3 + 1.1 * hf));
-  f = max(f, smoothstep(uEdge * 0.55, uEdge, dist));
+  f = max(f, smoothstep(uEdge * 0.68, uEdge, dist));
   vec3 fc = skyBase(normalize(vec3(d.x, d.y * 0.35, d.z)));
   return mix(col, fc, clamp(f, 0.0, 1.0));
 }
@@ -135,7 +135,7 @@ void main() {
   float cold = smoothstep(0.45, 0.95, b);
   float snowLine = mix(78.0, 14.0, cold);
   float snow = smoothstep(snowLine - 5.0, snowLine + 5.0, h + r * 8.0) * (1.0 - smoothstep(0.35, 0.6, slope));
-  alb = mix(alb, vec3(0.86, 0.9, 0.97), snow);
+  alb = mix(alb, vec3(0.66, 0.71, 0.8), snow);
 
   float beach = 1.0 - smoothstep(0.4, 1.6, h + r * 0.6);
   alb = mix(alb, uSand, beach * (1.0 - cold * 0.5));
@@ -159,8 +159,8 @@ export function makeTerrainMaterial(edge) {
     uniforms: {
       ...U,
       uEdge: { value: edge },
-      uGLow: { value: ['#e8c28c', '#86bf55', '#b3d67c', '#d4a448', '#e9f0f7'].map(c) },
-      uGHigh: { value: ['#d28a58', '#5c9a46', '#9fc77e', '#a8703a', '#c9d7e8'].map(c) },
+      uGLow: { value: ['#e8c28c', '#86bf55', '#b3d67c', '#d4a448', '#d3deec'].map(c) },
+      uGHigh: { value: ['#d28a58', '#5c9a46', '#9fc77e', '#a8703a', '#b4c3d8'].map(c) },
       uRock: { value: ['#b0603f', '#8a8478', '#a1909c', '#7c6656', '#76819a'].map(c) },
       uSand: { value: c('#e6d3a3') },
       uDeep: { value: c('#1b5d6e') },

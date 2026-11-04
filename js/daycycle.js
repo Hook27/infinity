@@ -4,16 +4,16 @@ import { U } from './shaders.js';
 
 // t: 0 = middernacht, 0.25 = zonsopkomst, 0.5 = middag, 0.75 = zonsondergang
 const KEYS = [
-  { t: 0.0, zen: '#04060f', hor: '#1a2146', sun: '#3a4f8f', light: '#6d86c8', li: 0.42, amb: 1.28, fog: 0.0026, glow: 1.0, stars: 1.0 },
-  { t: 0.19, zen: '#090d2a', hor: '#2b2a55', sun: '#6a5080', light: '#7280bf', li: 0.38, amb: 1.20, fog: 0.0028, glow: 1.0, stars: 0.85 },
-  { t: 0.245, zen: '#2c3c7a', hor: '#f0a08e', sun: '#ff9a6a', light: '#ffb78a', li: 0.9, amb: 0.75, fog: 0.0034, glow: 0.55, stars: 0.15 },
-  { t: 0.32, zen: '#3c7ad4', hor: '#b6d3ec', sun: '#ffe2b0', light: '#fff0d8', li: 1.15, amb: 0.48, fog: 0.0022, glow: 0.05, stars: 0 },
-  { t: 0.5, zen: '#2a68cc', hor: '#a6ccec', sun: '#fff4dc', light: '#fff6e6', li: 1.2, amb: 0.42, fog: 0.0020, glow: 0.0, stars: 0 },
-  { t: 0.64, zen: '#3f66bd', hor: '#eccc9c', sun: '#ffc47a', light: '#ffd9a4', li: 1.2, amb: 0.45, fog: 0.0022, glow: 0.05, stars: 0 },
-  { t: 0.715, zen: '#343a84', hor: '#ff9560', sun: '#ff7a40', light: '#ffa060', li: 1.1, amb: 0.55, fog: 0.0026, glow: 0.3, stars: 0 },
-  { t: 0.765, zen: '#1c1a4c', hor: '#b84e6c', sun: '#ff5a5a', light: '#d07090', li: 0.55, amb: 0.82, fog: 0.0030, glow: 0.8, stars: 0.35 },
-  { t: 0.84, zen: '#070a22', hor: '#262452', sun: '#5a4a8a', light: '#6a78bb', li: 0.42, amb: 1.20, fog: 0.0027, glow: 1.0, stars: 1.0 },
-  { t: 1.0, zen: '#04060f', hor: '#1a2146', sun: '#3a4f8f', light: '#6d86c8', li: 0.42, amb: 1.28, fog: 0.0026, glow: 1.0, stars: 1.0 },
+  { t: 0.0, zen: '#04060f', hor: '#1a2146', sun: '#3a4f8f', light: '#6d86c8', li: 0.42, amb: 1.28, fog: 0.0021, glow: 1.0, stars: 1.0 },
+  { t: 0.19, zen: '#090d2a', hor: '#2b2a55', sun: '#6a5080', light: '#7280bf', li: 0.38, amb: 1.20, fog: 0.0022, glow: 1.0, stars: 0.85 },
+  { t: 0.245, zen: '#2c3c7a', hor: '#f0a08e', sun: '#ff9a6a', light: '#ffb78a', li: 0.9, amb: 0.75, fog: 0.0027, glow: 0.55, stars: 0.15 },
+  { t: 0.32, zen: '#3c7ad4', hor: '#b6d3ec', sun: '#ffe2b0', light: '#fff0d8', li: 1.15, amb: 0.48, fog: 0.0018, glow: 0.05, stars: 0 },
+  { t: 0.5, zen: '#2a68cc', hor: '#a6ccec', sun: '#fff4dc', light: '#fff6e6', li: 1.2, amb: 0.42, fog: 0.0016, glow: 0.0, stars: 0 },
+  { t: 0.64, zen: '#3f66bd', hor: '#eccc9c', sun: '#ffc47a', light: '#ffd9a4', li: 1.2, amb: 0.45, fog: 0.0018, glow: 0.05, stars: 0 },
+  { t: 0.715, zen: '#343a84', hor: '#ff9560', sun: '#ff7a40', light: '#ffa060', li: 1.1, amb: 0.55, fog: 0.0021, glow: 0.3, stars: 0 },
+  { t: 0.765, zen: '#1c1a4c', hor: '#b84e6c', sun: '#ff5a5a', light: '#d07090', li: 0.55, amb: 0.82, fog: 0.0024, glow: 0.8, stars: 0.35 },
+  { t: 0.84, zen: '#070a22', hor: '#262452', sun: '#5a4a8a', light: '#6a78bb', li: 0.42, amb: 1.20, fog: 0.0022, glow: 1.0, stars: 1.0 },
+  { t: 1.0, zen: '#04060f', hor: '#1a2146', sun: '#3a4f8f', light: '#6d86c8', li: 0.42, amb: 1.28, fog: 0.0021, glow: 1.0, stars: 1.0 },
 ].map((k) => ({ ...k, zen: new THREE.Color(k.zen), hor: new THREE.Color(k.hor), sun: new THREE.Color(k.sun), light: new THREE.Color(k.light) }));
 
 const _a = new THREE.Color(), _b = new THREE.Color();

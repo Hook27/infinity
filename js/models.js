@@ -87,7 +87,7 @@ class Builder {
 
 const ico = (r, d = 0) => new THREE.IcosahedronGeometry(r, d);
 const dode = (r) => new THREE.DodecahedronGeometry(r, 0);
-const cyl = (rt, rb, h, s = 6) => new THREE.CylinderGeometry(rt, rb, h, s, 1);
+const cyl = (rt, rb, h, s = 6, open = false) => new THREE.CylinderGeometry(rt, rb, h, s, 1, open);
 const cone = (r, h, s = 6) => new THREE.ConeGeometry(r, h, s, 1);
 const box = (x, y, z) => new THREE.BoxGeometry(x, y, z);
 const octa = (r) => new THREE.OctahedronGeometry(r, 0);
@@ -120,7 +120,7 @@ export function blossomTree() {
     .add(cyl(0.1, 0.16, 1.8, 5), { color: '#5a3a35', p: [0.55, 2.6, 0.1], r: [0, 0, -0.7] })
     .add(cyl(0.1, 0.16, 1.6, 5), { color: '#5a3a35', p: [-0.55, 2.5, -0.1], r: [0.2, 0, 0.8] });
   const puffs = [[0, 3.6, 0, 1.3], [1.3, 3.2, 0.3, 1.0], [-1.2, 3.1, -0.2, 1.0], [0.4, 3.0, 1.1, 0.9], [-0.3, 3.2, -1.1, 0.9], [0.2, 4.3, -0.2, 0.8]];
-  puffs.forEach(([x, y, z, r], i) => b.add(dode(r), { color: i % 2 ? '#ffffff' : '#f3e9ee', tint: 1, p: [x, y, z], jitter: 0.25, seed: 10 + i, sway: 0.5, vary: 0.2 }));
+  puffs.forEach(([x, y, z, r], i) => b.add(ico(r * 1.05), { color: i % 2 ? '#ffffff' : '#f3e9ee', tint: 1, p: [x, y, z], jitter: 0.3, seed: 10 + i, sway: 0.5, vary: 0.2 }));
   return b.build();
 }
 
@@ -161,10 +161,9 @@ export function grass() {
 export function flower() {
   const b = new Builder();
   const stems = [[0, 0, 0.75], [0.25, 0.15, 0.55], [-0.2, 0.2, 0.62]];
-  stems.forEach(([x, z, h], i) => {
-    b.add(cyl(0.02, 0.025, h, 3), { color: '#5d8f3a', p: [x, h / 2, z], sway: 0.4 });
+  stems.forEach(([x, z, h]) => {
+    b.add(new THREE.CylinderGeometry(0.02, 0.025, h, 3, 1, true), { color: '#5d8f3a', p: [x, h / 2, z], sway: 0.4 });
     b.add(octa(0.13), { color: '#ffffff', tint: 1, glow: 0.12, p: [x, h + 0.04, z], s: [1, 0.55, 1], sway: 0.4 });
-    b.add(ico(0.05), { color: '#ffe680', p: [x, h + 0.1, z], sway: 0.4 });
   });
   return b.build(0.9);
 }
@@ -319,7 +318,10 @@ export function cloud() {
 
 export function island() {
   const b = new Builder();
-  b.add(cone(14, 26, 8), { color: '#8a7466', p: [0, -13, 0], r: [Math.PI, 0, 0], jitter: 3, seed: 131, vary: 0.25 });
+  b.add(cone(14, 22, 9), { color: '#8a7466', p: [0, -11, 0], r: [Math.PI, 0, 0], jitter: 4.5, seed: 131, vary: 0.25 });
+  b.add(cone(7, 16, 7), { color: '#76655c', p: [5, -17, 3], r: [Math.PI, 0.4, 0.15], jitter: 2.5, seed: 134, vary: 0.25 });
+  b.add(cone(6, 12, 7), { color: '#9a8070', p: [-6, -13, -4], r: [Math.PI, 0.9, -0.2], jitter: 2, seed: 135, vary: 0.25 });
+  b.add(cyl(0.9, 0.9, 30, 6), { color: '#bfe8ff', glow: 0.5, p: [13.2, -14, 2], s: [1, 1, 0.35] });
   b.add(cyl(14.5, 14, 2.2, 9), { color: '#7fb85a', p: [0, 0.6, 0], jitter: 1.2, seed: 132, vary: 0.2 });
   b.add(dode(3.4), { color: '#8a8580', p: [4, 2, -3], jitter: 1, seed: 133 });
   for (let i = 0; i < 5; i++) {

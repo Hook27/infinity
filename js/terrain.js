@@ -9,39 +9,80 @@ const SEG = 24;
 const CELL = CHUNK / SEG;
 const VN = SEG + 1;
 
-// ---------- Instance-pools: één InstancedMesh per objecttype, elke chunk krijgt een vast slot ----------
+// ---------- Instance-pools ----------
+// Eén InstancedMesh per objecttype. Chunks krijgen 'pages' van 8 instances uit een vrije lijst,
+// en mesh.count volgt de hoogst gebruikte page, zodat er nooit lege slots getekend worden.
 class Pool {
-  constructor(scene, geo, mat, slots, perChunk) {
-    this.per = perChunk;
-    this.cap = slots * perChunk;
+  constructor(scene, geo, mat, cap, perChunk) {
+    // kleine pages voor zeldzame objecten, grotere voor gras en bloemen
+    const PS = (this.PS = Math.max(1, Math.min(8, Math.floor(perChunk / 6))));
+    this.pages = Math.ceil(cap / PS);
+    this.cap = this.pages * PS;
     this.mesh = new THREE.InstancedMesh(geo, mat, this.cap);
     this.mesh.frustumCulled = false;
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.instanceMatrix.array.fill(0);
     this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 3).fill(1), 3);
+    this.mesh.count = 0;
     scene.add(this.mesh);
-    this.fill = new Int32Array(slots);
+    this.used = new Uint8Array(this.pages);
+    this.free = [];
+    for (let i = this.pages - 1; i >= 0; i--) this.free.push(i);
+    this.per = perChunk;
+    this.stM = new Float32Array(perChunk * 16);
+    this.stC = new Float32Array(perChunk * 3);
+    this.n = 0;
   }
-  begin(slot) { this.fill[slot] = 0; }
-  add(slot, m4, color) {
-    const n = this.fill[slot];
-    if (n >= this.per) return false;
-    const i = slot * this.per + n;
-    m4.toArray(this.mesh.instanceMatrix.array, i * 16);
-    color.toArray(this.mesh.instanceColor.array, i * 3);
-    this.fill[slot] = n + 1;
+  begin() { this.n = 0; }
+  stage(m4, color) {
+    if (this.n >= this.per) return false;
+    m4.toArray(this.stM, this.n * 16);
+    color.toArray(this.stC, this.n * 3);
+    this.n++;
     return true;
   }
-  end(slot) {
-    const a = this.mesh.instanceMatrix.array;
-    const start = slot * this.per;
-    for (let i = start + this.fill[slot]; i < start + this.per; i++) a.fill(0, i * 16, i * 16 + 16);
-    this.mesh.instanceMatrix.addUpdateRange(start * 16, this.per * 16);
-    this.mesh.instanceMatrix.needsUpdate = true;
-    this.mesh.instanceColor.addUpdateRange(start * 3, this.per * 3);
-    this.mesh.instanceColor.needsUpdate = true;
+  commit() {
+    const PS = this.PS;
+    const pages = [];
+    const M = this.mesh.instanceMatrix, Cc = this.mesh.instanceColor;
+    let k = 0;
+    while (k < this.n && this.free.length) {
+      const pg = this.free.pop();
+      this.used[pg] = 1;
+      pages.push(pg);
+      const base = pg * PS;
+      for (let j = 0; j < PS; j++, k++) {
+        const i = base + j;
+        if (k < this.n) {
+          M.array.set(this.stM.subarray(k * 16, k * 16 + 16), i * 16);
+          Cc.array.set(this.stC.subarray(k * 3, k * 3 + 3), i * 3);
+        } else M.array.fill(0, i * 16, i * 16 + 16);
+      }
+      M.addUpdateRange(base * 16, PS * 16);
+      Cc.addUpdateRange(base * 3, PS * 3);
+    }
+    if (pages.length) { M.needsUpdate = true; Cc.needsUpdate = true; this.recount(); }
+    return pages;
   }
-  clear(slot) { this.begin(slot); this.end(slot); }
+  release(pages) {
+    if (!pages.length) return;
+    const PS = this.PS;
+    const M = this.mesh.instanceMatrix;
+    for (const pg of pages) {
+      this.used[pg] = 0;
+      M.array.fill(0, pg * PS * 16, (pg + 1) * PS * 16);
+      M.addUpdateRange(pg * PS * 16, PS * 16);
+      this.free.push(pg);
+    }
+    M.needsUpdate = true;
+    this.free.sort((a, b) => b - a);
+    this.recount();
+  }
+  recount() {
+    let h = this.pages;
+    while (h > 0 && !this.used[h - 1]) h--;
+    this.mesh.count = h * this.PS;
+  }
   shift(dx, dz) {
     const a = this.mesh.instanceMatrix.array;
     for (let i = 0; i < this.cap; i++) {
@@ -57,37 +98,37 @@ const P = (arr) => arr.map((a) => (a ? a.map(C) : null));
 
 // Bioomindex: 0 woestijn, 1 weide, 2 bloesem, 3 herfst, 4 sneeuw
 const TYPES = {
-  grass: { model: M.grass, per: 120, tries: 150, dens: [0.3, 1, 0.95, 0.75, 0.12], slope: 0.45, scale: [0.9, 1.7], sink: 0.05, double: true,
+  grass: { frac: 0.65, model: M.grass, per: 120, tries: 150, dens: [0.3, 1, 0.95, 0.75, 0.12], slope: 0.45, scale: [0.9, 1.7], sink: 0.05, double: true,
     colors: P([['#c9a65a', '#d8b56a'], ['#7cc04f', '#91cf55', '#6aab45'], ['#a8d66a', '#bfe07a'], ['#d6a243', '#c98a3a', '#e0b85a'], ['#b7c9b0']]) },
-  flower: { model: M.flower, per: 44, tries: 60, dens: [0.04, 0.75, 1, 0.25, 0], slope: 0.4, scale: [0.9, 1.4], sink: 0.02, double: true,
+  flower: { frac: 0.6, model: M.flower, per: 44, tries: 60, dens: [0.04, 0.75, 1, 0.25, 0], slope: 0.4, scale: [0.9, 1.4], sink: 0.02, double: true,
     colors: P([['#ff7aa8'], ['#ff6b8b', '#ffd34e', '#ffffff', '#9b7bff', '#ff8a3d'], ['#ff9ac8', '#ffffff', '#ffd1e8', '#c7a0ff'], ['#ffb347', '#ff6b4a'], null]) },
-  tree: { model: M.treeRound, per: 28, tries: 60, dens: [0, 0.85, 0.2, 0.65, 0], slope: 0.38, scale: [0.9, 1.6], sink: 0.3, forest: -0.05,
+  tree: { frac: 0.45, model: M.treeRound, per: 28, tries: 60, dens: [0, 0.85, 0.2, 0.65, 0], slope: 0.38, scale: [0.9, 1.6], sink: 0.3, forest: -0.05,
     colors: P([null, ['#4f9a3c', '#6cb043', '#3d7d3a', '#5aa640'], ['#7cbf55'], ['#e0662c', '#f2a33a', '#c0392b', '#e8c547', '#d9531e'], null]) },
-  pine: { model: M.pine, per: 28, tries: 60, dens: [0, 0.18, 0, 0.35, 1], slope: 0.5, scale: [0.9, 1.9], sink: 0.3, forest: -0.15,
+  pine: { frac: 0.5, model: M.pine, per: 28, tries: 60, dens: [0, 0.18, 0, 0.35, 1], slope: 0.5, scale: [0.9, 1.9], sink: 0.3, forest: -0.15,
     colors: P([null, ['#2f6b46', '#3a7a4c'], null, ['#4b6b3a', '#5c7a3c'], ['#2f5d50', '#3c6e5e', '#2a5248']]) },
-  blossom: { model: M.blossomTree, per: 24, tries: 50, dens: [0, 0.06, 1, 0, 0], slope: 0.38, scale: [0.9, 1.5], sink: 0.3, forest: -0.1,
+  blossom: { frac: 0.5, model: M.blossomTree, per: 24, tries: 50, dens: [0, 0.06, 1, 0, 0], slope: 0.38, scale: [0.9, 1.5], sink: 0.3, forest: -0.1,
     colors: P([null, ['#ffc4dd'], ['#f7a8c8', '#ffc4dd', '#f48fb1', '#fff0f5', '#e7a0ff'], null, null]) },
-  acacia: { model: M.acacia, per: 8, tries: 10, dens: [0.35, 0.08, 0, 0, 0], slope: 0.35, scale: [1, 1.6], sink: 0.2,
+  acacia: { frac: 0.25, model: M.acacia, per: 8, tries: 10, dens: [0.35, 0.08, 0, 0, 0], slope: 0.35, scale: [1, 1.6], sink: 0.2,
     colors: P([['#8aa04a', '#9aa84e'], ['#6f9a3e'], null, null, null]) },
-  cactus: { model: M.cactus, per: 10, tries: 12, dens: [0.65, 0, 0, 0, 0], slope: 0.35, scale: [0.8, 1.5], sink: 0.2,
+  cactus: { frac: 0.25, model: M.cactus, per: 10, tries: 12, dens: [0.65, 0, 0, 0, 0], slope: 0.35, scale: [0.8, 1.5], sink: 0.2,
     colors: P([['#5e8c4a', '#6a9a50', '#4f7d44'], null, null, null, null]) },
-  bush: { model: M.bush, per: 22, tries: 28, dens: [0.3, 0.6, 0.6, 0.75, 0.25], slope: 0.45, scale: [0.8, 1.6], sink: 0.15,
+  bush: { frac: 0.55, model: M.bush, per: 22, tries: 28, dens: [0.3, 0.6, 0.6, 0.75, 0.25], slope: 0.45, scale: [0.8, 1.6], sink: 0.15,
     colors: P([['#9aa24e', '#a8a058'], ['#4c8f3a', '#5ea844'], ['#e79abf', '#7cbf55'], ['#c65a2a', '#b8862f'], ['#3c6e5e']]) },
-  rock: { model: M.rock, per: 16, tries: 18, dens: [0.8, 0.45, 0.4, 0.5, 0.6], slope: 1.2, scale: [0.6, 1.8], sink: 0.2,
+  rock: { frac: 0.6, model: M.rock, per: 16, tries: 18, dens: [0.8, 0.45, 0.4, 0.5, 0.6], slope: 1.2, scale: [0.6, 1.8], sink: 0.2,
     colors: P([['#c47a52', '#b5694a', '#d29266'], ['#9a958c', '#8a8780'], ['#b0a3ad', '#9d9399'], ['#8c7666', '#7a6a5e'], ['#8a94aa', '#a8b3c6']]) },
-  boulder: { model: M.boulder, per: 3, tries: 3, dens: [0.6, 0.3, 0.3, 0.35, 0.5], slope: 0.8, scale: [0.8, 1.6], sink: 0.6,
+  boulder: { frac: 0.75, model: M.boulder, per: 3, tries: 3, dens: [0.6, 0.3, 0.3, 0.35, 0.5], slope: 0.8, scale: [0.8, 1.6], sink: 0.6,
     colors: P([['#bf7550'], ['#8f8b84'], ['#a59aa2'], ['#86705f'], ['#8590a6']]) },
-  crystal: { model: M.crystal, per: 8, tries: 9, dens: [0.12, 0, 0.05, 0, 0.75], slope: 0.9, scale: [0.8, 2.2], sink: 0.4, tilt: 0.25,
+  crystal: { frac: 0.35, model: M.crystal, per: 8, tries: 9, dens: [0.12, 0, 0.05, 0, 0.75], slope: 0.9, scale: [0.8, 2.2], sink: 0.4, tilt: 0.25,
     colors: P([['#ff7ac8', '#ffa0d8'], null, ['#c7a0ff'], null, ['#7fe0ff', '#b48cff', '#9ff0ff', '#7fb0ff']]) },
-  mushroom: { model: M.mushroom, per: 10, tries: 12, dens: [0, 0.3, 0.1, 1, 0], slope: 0.4, scale: [0.6, 2.2], sink: 0.1,
+  mushroom: { frac: 0.4, model: M.mushroom, per: 10, tries: 12, dens: [0, 0.3, 0.1, 1, 0], slope: 0.4, scale: [0.6, 2.2], sink: 0.1,
     colors: P([null, ['#4ff0d0', '#6fd8ff'], ['#ff9ad0'], ['#d9412b', '#e8642c', '#c7341f'], null]) },
-  lantern: { model: M.lanternPost, per: 6, tries: 6, dens: [0, 0.08, 0.7, 0.18, 0.05], slope: 0.3, scale: [1, 1.3], sink: 0.1,
+  lantern: { frac: 0.4, model: M.lanternPost, per: 6, tries: 6, dens: [0, 0.08, 0.7, 0.18, 0.05], slope: 0.3, scale: [1, 1.3], sink: 0.1,
     colors: P([null, ['#ffd28a'], ['#ffb0d0', '#ffd28a'], ['#ffb46a'], ['#bfe8ff']]) },
-  monolith: { model: M.monolith, per: 12, tries: 0, colors: null },
-  column: { model: M.column, per: 10, tries: 0, colors: null },
-  arch: { model: M.arch, per: 1, tries: 0, colors: null },
-  colossus: { model: M.colossus, per: 1, tries: 0, colors: null },
-  ring: { model: M.ring, per: 1, tries: 0, colors: null },
+  monolith: { frac: 0.25, model: M.monolith, per: 12, tries: 0, colors: null },
+  column: { frac: 0.3, model: M.column, per: 10, tries: 0, colors: null },
+  arch: { frac: 0.15, model: M.arch, per: 1, tries: 0, colors: null },
+  colossus: { frac: 0.12, model: M.colossus, per: 1, tries: 0, colors: null },
+  ring: { frac: 0.12, model: M.ring, per: 1, tries: 0, colors: null },
 };
 
 const _m = new THREE.Matrix4();
@@ -108,13 +149,11 @@ export class World {
     this.slots = 0;
     for (let x = -R; x <= R; x++) for (let z = -R; z <= R; z++) if (x * x + z * z <= R * R + R) this.slots++;
     this.slots += 8;
-    this.freeSlots = [];
-    for (let i = this.slots - 1; i >= 0; i--) this.freeSlots.push(i);
 
     this.pools = {};
     for (const [name, t] of Object.entries(TYPES)) {
       const per = Math.max(1, Math.round(t.per * (t.tries ? this.density : 1)));
-      this.pools[name] = new Pool(scene, t.model(), t.double ? propMatDouble : propMat, this.slots, per);
+      this.pools[name] = new Pool(scene, t.model(), t.double ? propMatDouble : propMat, Math.ceil(this.slots * per * t.frac) + 16, per);
     }
 
     // gedeelde index-buffer
@@ -180,24 +219,23 @@ export class World {
     mesh.updateMatrix();
     mesh.visible = true;
 
-    const slot = this.freeSlots.pop();
-    const chunk = { cx, cz, mesh, slot };
+    const chunk = { cx, cz, mesh, pages: {} };
     this.scatter(chunk);
     return chunk;
   }
 
-  place(name, slot, x, y, z, rotY, scale, color, tiltX = 0, tiltZ = 0, sy = 1) {
+  place(name, x, y, z, rotY, scale, color, tiltX = 0, tiltZ = 0, sy = 1) {
     _p.set(x - origin.x, y, z - origin.z);
     _e.set(tiltX, rotY, tiltZ);
     _q.setFromEuler(_e);
     _s.set(scale, scale * sy, scale);
     _m.compose(_p, _q, _s);
-    return this.pools[name].add(slot, _m, color);
+    return this.pools[name].stage(_m, color);
   }
 
   scatter(chunk) {
-    const { cx, cz, slot } = chunk;
-    for (const p of Object.values(this.pools)) p.begin(slot);
+    const { cx, cz } = chunk;
+    for (const p of Object.values(this.pools)) p.begin();
     const rnd = mulberry32(seedFor(cx, cz, 4242));
     const ox = cx * CHUNK, oz = cz * CHUNK;
 
@@ -228,16 +266,16 @@ export class World {
         _c.multiplyScalar(0.9 + r5 * 0.2);
         const sc = t.scale[0] + (t.scale[1] - t.scale[0]) * r4 * r4;
         const tilt = t.tilt || 0.04;
-        this.place(name, slot, x, h - t.sink * sc, z, r5 * Math.PI * 2, sc, _c, (r1 - 0.5) * tilt, (r3 - 0.5) * tilt);
+        this.place(name, x, h - t.sink * sc, z, r5 * Math.PI * 2, sc, _c, (r1 - 0.5) * tilt, (r3 - 0.5) * tilt);
       }
     }
 
     this.landmarks(chunk, rnd);
-    for (const p of Object.values(this.pools)) p.end(slot);
+    for (const [name, p] of Object.entries(this.pools)) chunk.pages[name] = p.commit();
   }
 
   landmarks(chunk, rnd) {
-    const { cx, cz, slot } = chunk;
+    const { cx, cz } = chunk;
     const x0 = cx * CHUNK + CHUNK * 0.5 + (rnd() - 0.5) * 16;
     const z0 = cz * CHUNK + CHUNK * 0.5 + (rnd() - 0.5) * 16;
     sampleWorld(x0, z0, _w);
@@ -256,10 +294,10 @@ export class World {
         const x = x0 + Math.cos(a) * R, z = z0 + Math.sin(a) * R;
         const h = sampleWorld(x, z, _w).h;
         _c.copy(stone).multiplyScalar(0.85 + rnd() * 0.3);
-        this.place('monolith', slot, x, h - 0.6, z, -a + Math.PI / 2, 0.85 + rnd() * 0.5, _c, (rnd() - 0.5) * 0.15, (rnd() - 0.5) * 0.15);
+        this.place('monolith', x, h - 0.6, z, -a + Math.PI / 2, 0.85 + rnd() * 0.5, _c, (rnd() - 0.5) * 0.15, (rnd() - 0.5) * 0.15);
       }
       _c.copy(stone);
-      this.place('monolith', slot, x0, h0 - 0.4, z0, rnd() * 6, 1.5, _c);
+      this.place('monolith', x0, h0 - 0.4, z0, rnd() * 6, 1.5, _c);
     } else if (roll < 0.07) {
       // ruïnes
       const n = 4 + Math.floor(rnd() * 6);
@@ -274,25 +312,24 @@ export class World {
         if (h < 0.5) continue;
         const broken = rnd() < 0.4;
         _c.copy(ruin).multiplyScalar(0.85 + rnd() * 0.2);
-        this.place('column', slot, x, h - 0.2, z, rnd(), 1, _c, broken ? (rnd() - 0.5) * 0.4 : 0, 0, broken ? 0.3 + rnd() * 0.5 : 1);
+        this.place('column', x, h - 0.2, z, rnd(), 1, _c, broken ? (rnd() - 0.5) * 0.4 : 0, 0, broken ? 0.3 + rnd() * 0.5 : 1);
       }
     } else if (roll < (b === 0 ? 0.16 : 0.085)) {
       _c.copy(b === 0 ? C('#d58a5a') : stone);
-      this.place('arch', slot, x0, h0 - 2, z0, rnd() * Math.PI, 0.8 + rnd() * 0.6, _c);
+      this.place('arch', x0, h0 - 2, z0, rnd() * Math.PI, 0.8 + rnd() * 0.6, _c);
     } else if (roll < (b === 0 ? 0.175 : 0.1)) {
       _c.copy(stone).multiplyScalar(1.1);
-      this.place('colossus', slot, x0, h0 - 1.2, z0, rnd() * Math.PI * 2, 1.2 + rnd() * 0.6, _c);
+      this.place('colossus', x0, h0 - 1.2, z0, rnd() * Math.PI * 2, 1.2 + rnd() * 0.6, _c);
     } else if (roll < (b === 0 ? 0.19 : 0.12)) {
       _c.copy(ruin);
-      this.place('ring', slot, x0, h0 - 0.3, z0, rnd() * Math.PI, 1 + rnd() * 0.4, _c);
+      this.place('ring', x0, h0 - 0.3, z0, rnd() * Math.PI, 1 + rnd() * 0.4, _c);
     }
   }
 
   releaseChunk(chunk) {
     chunk.mesh.visible = false;
     this.meshPool.push(chunk.mesh);
-    for (const p of Object.values(this.pools)) p.clear(chunk.slot);
-    this.freeSlots.push(chunk.slot);
+    for (const [name, p] of Object.entries(this.pools)) p.release(chunk.pages[name]);
   }
 
   // camX/camZ in echte wereldcoördinaten; dir = kijkrichting (x,z)
@@ -326,7 +363,7 @@ export class World {
     }
     const t0 = performance.now();
     let built = 0;
-    while (this.queue.length && this.freeSlots.length) {
+    while (this.queue.length) {
       if (!force && built > 0 && performance.now() - t0 > budgetMs) break;
       const q = this.queue.pop();
       const k = this.key(q.cx, q.cz);
