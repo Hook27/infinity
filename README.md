@@ -36,7 +36,7 @@ en ga naar <http://localhost:8000>. Het werkt ook direct op GitHub Pages.
 
 ## De ruimte
 
-Via de schakelaar **Aarde · Ruimte** rechtsboven (of op `/ruimte/`) reis je eindeloos door een
+Via de schakelaar **Aarde · Ruimte · Wolken** rechtsboven (of op `/ruimte/`) reis je eindeloos door een
 procedureel gegenereerd stuk melkweg, realistisch en zonder mensenwerk:
 
 - **Sterrenhemel** met sterren in lagen die meeschuiven, een melkwegband met stofbanen en verre
@@ -59,6 +59,28 @@ langs en ontwijkt botsingen. Besturing in de ruimte: `←` `→` draaien, `Q` `E
 `↑` `↓` of scrollen voor snelheid, `N` naar de volgende bezienswaardigheid, en verder `C`, `M`,
 `H`, `F` en spatie zoals op aarde. URL-opties: `?seed=3` (startplek), `?gebied=0`–`3` (begin in
 een bepaald gebied) en `?q=0.6` (lagere kwaliteit).
+
+## Boven de wolken
+
+De derde wereld (**Wolken** in de schakelaar, of `/wolken/`): een eindeloze vlucht boven en door
+de wolken, puur wolken en lucht, zonder grond.
+
+- **Volumetrische wolken**, doorgerekend met lichtverstrooiing: zilveren randen tegen de zon,
+  zelfschaduw, gloeiende toppen bij zonsopkomst en -ondergang en een diepe wolkenlaag ver beneden.
+  Een weerkaart bepaalt waar welke wolken staan: vlakke wolkenzeeën, stapelwolken, torenhoge
+  onweerswolken met aambeelden en regensluiers. Elk beeld wordt gemengd met het vorige
+  (tijdsfilter) voor rustige, scherpe wolken.
+- **Onweer**: bliksem die wolken van binnenuit verlicht, zichtbare schichten en donder die klinkt
+  met de vertraging van de geluidssnelheid (hoe verder weg, hoe later en lager).
+- **Licht en lucht** uit de aardse wereld: dezelfde dag- en nachtcyclus, zon, maan, sterren,
+  sluierwolken en noorderlicht, plus de **glorie**: een gekleurde ring op de wolken tegenover de zon.
+- **Gebieden**: De Wolkenzee, De Torens, De Passaat, Het Poolgebied en, zeldzaam, Het Oog van een
+  orkaan met een draaiende wolkenmuur.
+- **Vogels** trekken in V-formatie voorbij. De piloot scheert over de toppen, duikt soms dwars
+  door een wolk en houdt afstand van onweer.
+
+Besturing zoals op aarde (`←` `→`, `↑` `↓`, `Q` `E`, `T`, `C`, `M`, `H`, `F`, spatie).
+URL-opties: `?t=0.75`, `?seed=3`, `?gebied=0`–`4`, `?q=0.6`.
 
 ## Besturing
 
@@ -91,6 +113,8 @@ zoals op telefoons) en `?noshadow` (zonder schaduwen, voor tragere computers).
 - `js/pilot.js` — de automatische camera die dalen volgt en bergen ontwijkt
 - `js/audio.js` — de generatieve muziek
 - `js/daycycle.js`, `js/shaders.js`, `js/ui.js`, `js/main.js`
+- `wolken/` — de wolkenwereld: `weather.js` (weerkaart, gebieden, onweerscellen), `shaders.js`
+  (wolkenraymarch, compositie, bliksem, vogels), `storms.js`, `pilot.js` en `main.js`
 - `ruimte/` — de ruimtewereld: `noise3d.js` (3D-ruis), `universe.js` (sectoren en gebieden),
   `bodies.js` (hemellichamen), `pilot.js`, `shaders.js`, `hud.js` en `main.js`
 
