@@ -24,10 +24,16 @@
       <div class="tag">een reis zonder einde</div>
     </header>
 
-    <button class="music" data-act="music" data-state="waiting" aria-pressed="false" title="Muziek aan/uit (M)">
-      <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <span class="lbl">Klik voor muziek</span>
-    </button>
+    <div class="topbar">
+      <nav class="worlds" aria-label="Wereld kiezen">
+        <a href="./" aria-current="page">Aarde</a>
+        <a href="ruimte/">Ruimte</a>
+      </nav>
+      <button class="music" data-act="music" data-state="waiting" aria-pressed="false" title="Muziek aan/uit (M)" aria-label="Muziek aan/uit">
+        <span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span class="lbl">Klik voor muziek</span>
+      </button>
+    </div>
 
     <div class="compass" aria-hidden="true">
       <div id="compassStrip" class="strip"></div>

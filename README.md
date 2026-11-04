@@ -34,6 +34,32 @@ en ga naar <http://localhost:8000>. Het werkt ook direct op GitHub Pages.
   Browsers laten geluid pas toe na interactie, dus de muziek begint bij de eerste klik, tik of
   toets. Je keuze (aan/uit) wordt onthouden.
 
+## De ruimte
+
+Via de schakelaar **Aarde · Ruimte** rechtsboven (of op `/ruimte/`) reis je eindeloos door een
+procedureel gegenereerd stuk melkweg, realistisch en zonder mensenwerk:
+
+- **Sterrenhemel** met sterren in lagen die meeschuiven, een melkwegband met stofbanen en verre
+  sterrenstelsels.
+- **Plasmanevels**: volumetrische gaswolken (raymarching door een naadloze 3D-ruistextuur) in de
+  kleuren van echte nevels: rode waterstof, turquoise zuurstof, blauwe reflectienevels en donkere
+  stofbanen, verlicht door sterren in de buurt.
+- **Sterren** van rode dwerg tot blauwe reus, met een kokend plasma-oppervlak, zonnevlekken,
+  corona en protuberansen.
+- **Planeten**: rots-, woestijn-, oceaan- en ijsplaneten, gasreuzen en ijsreuzen, met dampkring,
+  wolken, ringen (met schaduw) en manen.
+- **Asteroïdengordels** met tollende rotsen en puin, en **kometen** met ion- en stofstaart.
+- **Zeldzaam**: zwarte gaten met accretieschijf en zwaartekrachtlens, pulsars met vegende stralen
+  en planetaire nevels.
+- **Gebieden**: De Rode Nevel, Het Blauwe Cluster, De Gordel, De Leegte en De Draaikolk, elk met
+  een eigen sfeer in de muziek.
+
+De piloot vliegt van bezienswaardigheid naar bezienswaardigheid, scheert er op een mooie afstand
+langs en ontwijkt botsingen. Besturing in de ruimte: `←` `→` draaien, `Q` `E` dalen/stijgen,
+`↑` `↓` of scrollen voor snelheid, `N` naar de volgende bezienswaardigheid, en verder `C`, `M`,
+`H`, `F` en spatie zoals op aarde. URL-opties: `?seed=3` (startplek), `?gebied=0`–`3` (begin in
+een bepaald gebied) en `?q=0.6` (lagere kwaliteit).
+
 ## Besturing
 
 | Toets | Actie |
@@ -65,6 +91,8 @@ zoals op telefoons) en `?noshadow` (zonder schaduwen, voor tragere computers).
 - `js/pilot.js` — de automatische camera die dalen volgt en bergen ontwijkt
 - `js/audio.js` — de generatieve muziek
 - `js/daycycle.js`, `js/shaders.js`, `js/ui.js`, `js/main.js`
+- `ruimte/` — de ruimtewereld: `noise3d.js` (3D-ruis), `universe.js` (sectoren en gebieden),
+  `bodies.js` (hemellichamen), `pilot.js`, `shaders.js`, `hud.js` en `main.js`
 
 Een *floating origin* houdt de coördinaten klein, zodat de reis echt eindeloos kan duren.
 Three.js r160 zit meegeleverd in `lib/three` (MIT-licentie).
